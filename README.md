@@ -2,7 +2,7 @@
 
 Wallet-hatched, animated AI agents on Solana, powered by Claude. Connect a wallet and it hatches a one-of-one ASCII PAL from your address. Teach it, give it skill files, let it build tools, research, and read the chain and markets, then mint it as an animated NFT. Whoever holds the NFT holds the agent and its memory.
 
-- **Live:** https://pals-production-7f4a6683.up.railway.app
+- **Live:** [pals.onl](https://pals.onl)
 - **$PALS CA:** `CAwfVJ5p5UCogGSVDaF4b6AJfE8mB1WocbUcqXN4pump`
 - **License:** MIT
 
