@@ -3,10 +3,24 @@
 Wallet-hatched, animated AI agents on Solana, powered by Claude. Connect a wallet and it hatches a one-of-one ASCII PAL from your address. Teach it, give it skill files, let it build tools, research, and read the chain and markets, then mint it as an animated NFT. Whoever holds the NFT holds the agent and its memory.
 
 - **Live:** https://pals-production-7f4a6683.up.railway.app
-- **$PALS:** `CAwfVJ5p5UCogGSVDaF4b6AJfE8mB1WocbUcqXN4pump` (100% of creator fees fund PAL compute)
+- **$PALS CA:** `CAwfVJ5p5UCogGSVDaF4b6AJfE8mB1WocbUcqXN4pump`
 - **License:** MIT
 
 > PALS is an independent project. It uses Claude through Anthropic's API and is not affiliated with or endorsed by Anthropic.
+
+## $PALS
+
+```
+CAwfVJ5p5UCogGSVDaF4b6AJfE8mB1WocbUcqXN4pump
+```
+
+[pump.fun](https://pump.fun/coin/CAwfVJ5p5UCogGSVDaF4b6AJfE8mB1WocbUcqXN4pump) · [DexScreener](https://dexscreener.com/solana/CAwfVJ5p5UCogGSVDaF4b6AJfE8mB1WocbUcqXN4pump) · [Solscan](https://solscan.io/token/CAwfVJ5p5UCogGSVDaF4b6AJfE8mB1WocbUcqXN4pump)
+
+- **100% of creator fees** go to the compute treasury, which pays for every PAL's Claude compute. None go to the team.
+- **Burn to mint:** once switched on, each new PAL burns a fixed amount of $PALS in the same transaction as the mint.
+- Always check the CA against this README or the site before buying. Not financial advice.
+
+## Code layout
 
 ```
 public/            the site (index.html), shared PAL core (pal-core.js), API client (api.js)
