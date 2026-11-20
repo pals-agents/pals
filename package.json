@@ -1,0 +1,28 @@
+{
+  "name": "pals",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PALS — Productive Agent Learning System. Wallet-hatched, animated, on-chain AI agents on Solana.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "scripts": {
+    "dev": "node --watch server/index.js",
+    "start": "node server/index.js",
+    "keys": "node scripts/keys.js",
+    "migrate": "node scripts/migrate.js",
+    "collection": "node scripts/create-collection.js",
+    "collection:fix-uri": "node scripts/fix-collection-uri.js",
+    "epoch": "node scripts/epoch.js",
+    "test": "node --test test/server.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "@metaplex-foundation/mpl-core": "latest",
+    "@metaplex-foundation/umi": "latest",
+    "@metaplex-foundation/umi-bundle-defaults": "latest",
+    "pg": "^8.13.0"
+  },
+  "license": "MIT"
+}
