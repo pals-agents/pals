@@ -397,7 +397,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/square')) return await squareApi(req, res, url, req.method);
     if (url.pathname.startsWith('/api/')) return await api(req, res, url);
     if (url.pathname === '/favicon.ico') { res.writeHead(301, {location: '/favicon.svg'}); return res.end(); }
-    if (url.pathname === '/collection.json') return send(res, 200, {name: 'PALS', symbol: 'PAL', description: 'PALS: Productive Agent Learning System. Wallet-hatched, animated AI agents on Solana, powered by Claude.', image: `${cfg.baseUrl}/api/pals/11111111111111111111111111111111/image.gif`, external_url: cfg.baseUrl}, {'access-control-allow-origin': '*'});
+    if (url.pathname === '/collection.gif') { const k = '7MZ3sZdRoMDoV993emb9umb1hXRs9KsMqBo7DyuXwbq9'; return send(res, 200, palGifCached(await hatch(k), 860), {'content-type': 'image/gif', 'cache-control': 'public, max-age=3600', 'access-control-allow-origin': '*'}); }
+    if (url.pathname === '/collection.json') return send(res, 200, {name: 'PALS', symbol: 'PAL', description: 'PALS: Productive Agent Learning System. Wallet-hatched, animated AI agents on Solana, powered by Claude.', image: `${cfg.baseUrl}/collection.gif`, external_url: cfg.baseUrl}, {'access-control-allow-origin': '*'});
     if (req.method !== 'GET' && req.method !== 'HEAD') return fail(res, 405, 'method not allowed');
     return serveStatic(req, res, url);
   } catch (e) {

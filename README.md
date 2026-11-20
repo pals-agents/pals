@@ -181,6 +181,17 @@ Skills travel with the NFT. A skill is only active for the wallet that uploaded 
 
 API: `GET/POST /api/pals/:key/skills`, `GET/DELETE /api/pals/:key/skills/:id`, `POST /api/pals/:key/skills/:id/approve`.
 
+## Marketplace images not updating?
+
+Tensor, Magic Eden and wallets cache an NFT's metadata when they first see it. After changing the image or moving `PUBLIC_BASE_URL` to a new domain, write fresh links on-chain so they re-read it:
+
+```
+npm run metadata:refresh          # dry run: shows what will change
+npm run metadata:refresh -- --yes # updates the collection + every minted PAL (tiny fee each, paid by the mint wallet)
+```
+
+Then hit refresh on the NFT page. Indexers can take a few minutes.
+
 ## Claude Code bridge
 
 Holders can take a PAL into Claude Code as a subagent, with two-way sync (Talk page → Claude Code card):

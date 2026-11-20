@@ -255,3 +255,11 @@ test('claude code bridge: agent key, MCP tools, agent pack, revoke', async () =>
   await fetch(`${base}/api/pals/${w.address}/agent-keys/${k.id}`, {method: 'DELETE', headers: H});
   r = await mcp({jsonrpc: '2.0', id: 10, method: 'tools/list'}); assert.equal(r.status, 401);
 });
+
+test('collection image is a real animated gif', async () => {
+  const c = await (await fetch(`${base}/collection.json`)).json();
+  assert.match(c.image, /\/collection\.gif$/);
+  const r = await fetch(`${base}/collection.gif`);
+  assert.equal(r.status, 200); assert.equal(r.headers.get('content-type'), 'image/gif');
+  assert.equal(Buffer.from(await r.arrayBuffer()).subarray(0, 6).toString(), 'GIF89a');
+});

@@ -15,7 +15,8 @@
     "collection": "node scripts/create-collection.js",
     "collection:fix-uri": "node scripts/fix-collection-uri.js",
     "epoch": "node scripts/epoch.js",
-    "test": "node --test test/server.test.js"
+    "test": "node --test test/server.test.js",
+    "metadata:refresh": "node scripts/refresh-metadata.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
