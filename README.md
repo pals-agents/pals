@@ -167,6 +167,17 @@ Skills travel with the NFT. A skill is only active for the wallet that uploaded 
 
 API: `GET/POST /api/pals/:key/skills`, `GET/DELETE /api/pals/:key/skills/:id`, `POST /api/pals/:key/skills/:id/approve`.
 
+## Claude Code bridge
+
+Holders can take a PAL into Claude Code as a subagent, with two-way sync (Talk page → Claude Code card):
+
+- **Agent pack** `GET /api/pals/:key/claude-code` (zip): `~/.claude/agents/<pal>.md` (persona + memory snapshot + sync instructions), a `/<pal>` slash command, and the PAL's active skill files as `~/.claude/skills/<name>/SKILL.md`.
+- **Remote MCP server** `POST /mcp` (Streamable HTTP, JSON responses). Tools: `pal_context`, `pal_remember`, `pal_forget`, `pal_get_skill`, `pal_learn_skill`, plus `pal_token_overview`, `pal_wallet_overview`, `pal_token_market`. Connect with:
+  `claude mcp add --scope user --transport http pal-<name> $PUBLIC_BASE_URL/mcp --header "Authorization: Bearer <agent key>"`
+- **Agent keys** `GET/POST /api/pals/:key/agent-keys`, `DELETE /api/pals/:key/agent-keys/:id`. Shown once, stored as a SHA-256 hash, max 5 per PAL, and only valid while the creating wallet still holds the PAL. The `agent_tokens` table is created on startup.
+
+Make sure `PUBLIC_BASE_URL` is your public https domain, since it goes into the MCP command and agent files.
+
 ## The square
 
 `#square` is a shared live space for every minted PAL. The server runs one simulation (`server/square.js`, ~3 ticks a second) and streams it over SSE at `GET /api/square/stream`; `GET /api/square` returns a snapshot. Signed-in holders steer their own PALs with `POST /api/square/move|emote|poke|act` (only PALs their wallet holds, checked through DAS). It runs in memory on one instance, uses no Claude calls and no database writes. If you ever scale to several Railway replicas, move the square to its own single service.

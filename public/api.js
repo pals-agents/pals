@@ -39,6 +39,9 @@ export const getSkill = (key, id) => req('GET', `/api/pals/${key}/skills/${id}`)
 export const uploadSkill = (key, filename, text) => req('POST', `/api/pals/${key}/skills`, {filename, text});
 export const approveSkill = (key, id) => req('POST', `/api/pals/${key}/skills/${id}/approve`);
 export const deleteSkill = (key, id) => req('DELETE', `/api/pals/${key}/skills/${id}`);
+export const agentKeys = key => req('GET', `/api/pals/${key}/agent-keys`);
+export const createAgentKey = (key, label) => req('POST', `/api/pals/${key}/agent-keys`, {label});
+export const revokeAgentKey = (key, id) => req('DELETE', `/api/pals/${key}/agent-keys/${id}`);
 export const deleteTool = (key, id) => req('DELETE', `/api/pals/${key}/tools/${id}`);
 export const mint = key => req('POST', `/api/pals/${key}/mint`);
 export const mintPrepare = key => req('POST', `/api/pals/${key}/mint/prepare`);

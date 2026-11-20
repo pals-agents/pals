@@ -14,6 +14,7 @@ import {mintPal, prepareUserMint, verifyMinted, assetOwner, palAssetsOwnedBy, ex
 import {burnOn, burnPublic, burnStatus, planBurn} from './burn.js';
 import {parseSkill, activeFor, publicSkill, SKILL_LIMITS} from './skills.js';
 import {Square, EMOTES} from './square.js';
+import {createMcp, agentPack, newAgentToken, hashToken, mcpServerName} from './claude-code.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'public');
@@ -153,6 +154,22 @@ async function api(req, res, url) {
   if (!(await canUse(wallet, key))) return fail(res, 403, 'this wallet does not hold that PAL');
 
   if (sub === '' && method === 'GET') return send(res, 200, await palRecord(key, wallet));
+
+  // Claude Code bridge: agent keys + agent pack
+  if (sub === '/agent-keys' && method === 'GET') return send(res, 200, {keys: await store.listAgentTokens(key), server: mcpServerName(await hatch(key)), url: cfg.baseUrl + '/mcp'});
+  if (sub === '/agent-keys' && method === 'POST') {
+    const {label} = await readJson(req);
+    if ((await store.listAgentTokens(key)).length >= 5) return fail(res, 400, 'a PAL can have 5 agent keys: revoke one first');
+    const token = newAgentToken(), p = await hatch(key), server = mcpServerName(p);
+    const id = await store.addAgentToken(key, wallet, String(label || 'Claude Code').slice(0, 40), hashToken(token));
+    return send(res, 200, {id, token, server, url: cfg.baseUrl + '/mcp', command: `claude mcp add --scope user --transport http ${server} ${cfg.baseUrl}/mcp --header "Authorization: Bearer ${token}"`});
+  }
+  if ((mm = sub.match(/^\/agent-keys\/([\w-]+)$/)) && method === 'DELETE') { await store.deleteAgentToken(key, mm[1]); return send(res, 200, {keys: await store.listAgentTokens(key)}); }
+  if (sub === '/claude-code' && method === 'GET') {
+    const [p, row, memories, skills] = await Promise.all([hatch(key), store.getPal(key), store.listMemories(key), store.listSkills(key, true)]);
+    const pack = agentPack({p, xp: row?.xp || 0, memories, skills: activeFor(skills, wallet), baseUrl: cfg.baseUrl});
+    return send(res, 200, pack.buffer, {'content-type': 'application/zip', 'content-disposition': `attachment; filename="${pack.filename}"`, 'cache-control': 'no-store'});
+  }
 
   // skill files
   if (sub === '/skills' && method === 'GET') return send(res, 200, {skills: (await store.listSkills(key)).map(s => publicSkill(s, wallet)), limits: SKILL_LIMITS});
@@ -372,9 +389,11 @@ async function squareApi(req, res, url, method) {
   return ok ? send(res, 200, {ok: true}) : fail(res, 400, 'that PAL is not in the square right now');
 }
 
+const handleMcp = createMcp({store, hatch, canUse, cfg});
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   try {
+    if (url.pathname === '/mcp') return await handleMcp(req, res, readJson, send);
     if (url.pathname.startsWith('/api/square')) return await squareApi(req, res, url, req.method);
     if (url.pathname.startsWith('/api/')) return await api(req, res, url);
     if (url.pathname === '/favicon.ico') { res.writeHead(301, {location: '/favicon.svg'}); return res.end(); }

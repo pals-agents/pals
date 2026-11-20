@@ -77,3 +77,13 @@ create table if not exists skills (
   created_at  timestamptz not null default now(),
   unique (pal_key, name)
 );
+
+create table if not exists agent_tokens (
+  id          text primary key,
+  pal_key     text not null references pals(pal_key) on delete cascade,
+  wallet      text not null,                 -- holder who created it; must still hold the PAL to use it
+  label       text not null,
+  token_hash  text not null unique,          -- sha256 of the token; the token itself is never stored
+  created_at  timestamptz not null default now(),
+  last_used   timestamptz
+);

@@ -223,6 +223,10 @@ input,textarea{font:inherit}
 .mem .ty.review{color:var(--warn)}
 .skf-desc{display:block;color:var(--dim);font-size:11.5px;margin-top:2px;line-height:1.4}
 .skf-body{max-height:52vh;overflow:auto;white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;line-height:1.55;background:var(--bg);border:1px solid var(--line);padding:14px;margin:12px 0}
+.cc-step{margin:14px 0 6px;font-family:var(--mono);font-size:12.5px;color:var(--accent2)}
+.cc-cmd{display:flex;gap:8px;align-items:stretch}
+.cc-cmd code{flex:1;display:block;background:var(--bg);border:1px solid var(--line);padding:10px 12px;font-size:12px;white-space:pre-wrap;word-break:break-all;color:var(--text)}
+.cc-cmd button{font:inherit;font-size:11.5px;background:var(--accent);color:var(--accent-ink);border:0;padding:0 10px;cursor:pointer}
 .skf-warn{border:1px dashed var(--warn);color:var(--warn);padding:10px 12px;font-size:12.5px;margin-top:10px}
 .chat{display:flex;flex-direction:column;height:calc(100vh - 190px);min-height:520px}
 #log{flex:1;overflow:auto;padding:18px 20px;font-family:var(--mono);font-size:13.5px;line-height:1.65}
@@ -755,6 +759,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:89;ba
         <button data-sec="d-levels">levels &amp; xp</button>
         <button data-sec="d-skills">skills</button>
         <button data-sec="d-skillfiles">skill files</button>
+        <button data-sec="d-claudecode">claude code</button>
         <button data-sec="d-square">the square</button>
         <button data-sec="d-fuel">compute &amp; $PALS</button>
         <button data-sec="d-inscribe">nft spec</button>
@@ -968,6 +973,30 @@ Keep it to bullets. Never tell me to buy.</pre>
           <h4>When a PAL changes hands</h4>
           <p>Skill files travel with the NFT, like memory. Files added by a previous holder show as <b>review</b> and stay off until the new holder reads and approves them. Delete anything that asks for keys, seed phrases, payments or links.</p>
           <div class="callout">Skill files shape how your PAL works. They can't override its safety rules: it will never ask for seed phrases or keys, tell anyone to send funds, or sign transactions.</div>
+        </div>
+
+        <div class="dsec" id="d-claudecode">
+          <h3>Claude Code <small>// take your PAL into your terminal</small></h3>
+          <p>Your PAL can work inside Claude Code as an interactive agent, with its personality, memories and skill files. What it learns there syncs back to PALS, and it can pull your Claude Code skills onto the platform.</p>
+          <h4>Set it up (Talk page → Claude Code → connect)</h4>
+          <ol>
+            <li><b>Install the agent pack.</b> Download it and unzip into your home folder: <code>cd ~ &amp;&amp; unzip -n ~/Downloads/&lt;pal&gt;-claude-code.zip</code>. It adds <code>~/.claude/agents/&lt;pal&gt;.md</code>, a <code>/&lt;pal&gt;</code> command and your PAL's skill files under <code>~/.claude/skills</code>.</li>
+            <li><b>Connect live sync.</b> Create an agent key and run the <code>claude mcp add …</code> command it shows. That connects your PAL's memory and skills on PALS as an MCP server.</li>
+            <li><b>Use it.</b> <code>/&lt;pal&gt; plan this refactor</code>, or "@&lt;pal&gt; remember I deploy on Railway".</li>
+          </ol>
+          <h4>What syncs</h4>
+          <table>
+            <tr><th>direction</th><th>what</th></tr>
+            <tr><td>PALS → Claude Code</td><td>personality, stats, memories and skill files (live through the MCP server, plus a snapshot in the agent file)</td></tr>
+            <tr><td>Claude Code → PALS</td><td>new memories (<code>pal_remember</code>) and skill files you ask it to learn (<code>pal_learn_skill</code>), e.g. "sync my skills from .claude/skills"</td></tr>
+          </table>
+          <p>It can also use live Solana tools there: <code>pal_token_overview</code>, <code>pal_wallet_overview</code>, <code>pal_token_market</code>. Memory and skill syncing doesn't use ⚡ fuel: the thinking happens on your own Claude Code plan.</p>
+          <h4>Keys and safety</h4>
+          <ul>
+            <li>A key is shown once and stored only as a hash. Revoke it any time from the Claude Code card.</li>
+            <li>Keys only work while the wallet that made them still holds the PAL. Sell or transfer it and old keys stop working.</li>
+            <li>Your PAL won't save anything that looks like a seed phrase, private key or password.</li>
+          </ul>
         </div>
 
         <div class="dsec" id="d-square">
@@ -1491,6 +1520,11 @@ function renderTalk() {
         <div class="card"><div class="mem-h"><b>Skill files</b><span class="mono dim" style="font-size:11px" id="skfCount"></span></div><div class="mem-list" id="skfList"></div>
           <div class="skf-actions"><label class="btn btn-ghost btn-sm" id="skfUpload">+ upload SKILL.md<input type="file" id="skfInput" accept=".md,.markdown,.txt,text/markdown,text/plain" multiple hidden></label><a href="#docs" class="mono dim" style="font-size:11px" data-doc="d-skillfiles">format</a></div>
         </div>
+        <div class="card" id="ccCard"><div class="mem-h"><b>Claude Code</b><span class="mono dim" style="font-size:11px" id="ccCount"></span></div>
+          <p class="dim" style="font-size:12.5px;margin:0 0 10px" id="ccText"></p>
+          <div class="mem-list" id="ccKeys"></div>
+          <div class="skf-actions"><button class="btn btn-ghost btn-sm" id="ccOpen">connect</button><a href="#docs" class="mono dim" style="font-size:11px" data-doc="d-claudecode">how it works</a></div>
+        </div>
         <div class="card"><div class="mem-h"><b>Toolbox</b><span class="mono dim" style="font-size:11px" id="toolCount"></span></div><div class="mem-list" id="toolList"></div></div>
       </aside>
       <div class="term chat">
@@ -1533,7 +1567,7 @@ function renderTalk() {
   $('#miniLvl').innerHTML = `<div class="lvl">LVL ${level(state.rec.xp)} · ${state.rec.xp} xp${xpBar(state.rec)}</div><div class="lvl fuelline"><a href="#fuel" id="miniFuel">${(fuelText(state.rec))}</a></div>`;
   updateStatus();
   $('#memName').textContent = p.name;
-  renderSkills(); renderSkillFiles(); renderTools(); setMode(state.mode);
+  renderSkills(); renderSkillFiles(); renderClaudeCode(); renderTools(); setMode(state.mode);
   $('#chatTitle').textContent = `pals chat --pal ${p.name.toLowerCase()}#${p.id}`;
   $('#chatMode').textContent = caps.sample || (state.rec.server && caps.serverBrain) ? 'claude' : 'offline';
   renderMemories();
@@ -1878,6 +1912,39 @@ document.addEventListener('click', e => {
   const dl = e.target.closest('[data-doc]'); if (dl) { setTimeout(() => { const el = document.getElementById(dl.dataset.doc); el && el.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 120); }
 });
 document.addEventListener('change', e => { if (e.target.id === 'skfInput' && e.target.files.length) { uploadSkillFiles([...e.target.files]); e.target.value = ''; } });
+async function renderClaudeCode() {
+  const el = $('#ccKeys'); if (!el) return;
+  const live = !!state.rec.server, p = state.pal;
+  $('#ccText').textContent = live ? `Take ${p.name} into Claude Code with its memories and skills. What it learns there comes back here.` : 'Needs the PALS server.';
+  $('#ccOpen').style.display = live ? '' : 'none';
+  if (!live) { el.innerHTML = ''; return; }
+  try { const r = await api.agentKeys(state.wallet); state.ccKeys = r.keys; state.ccServer = r.server; } catch (e) { state.ccKeys = state.ccKeys || []; }
+  const keys = state.ccKeys || [];
+  $('#ccCount').textContent = keys.length ? `${keys.length} key${keys.length > 1 ? 's' : ''}` : '';
+  el.innerHTML = keys.map(k => `<div class="mem"><span class="ty">key</span><span>${esc(k.label)}<span class="skf-desc">${k.last_used ? 'last synced ' + new Date(k.last_used).toLocaleDateString() : 'not used yet'}</span></span><button title="Revoke" data-ccrevoke="${k.id}">✕</button></div>`).join('');
+}
+function ccModal(created) {
+  const p = state.pal, slug = (state.ccServer || 'pal-' + p.name.toLowerCase()).replace(/^pal-/, '');
+  openModal(`<div class="tool-head"><h3>${esc(p.name)} → Claude Code</h3><span class="dim mono" style="font-size:11px">memories + skills, synced both ways</span><button class="btn btn-ghost btn-sm" id="ccClose">close</button></div>
+    <div class="cc-step">1 · install ${esc(p.name)} as a Claude Code agent</div>
+    <p class="muted" style="font-size:13px;margin:0 0 8px">Download the agent pack, then unzip it into your home folder:</p>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px"><a class="btn btn-primary btn-sm" href="/api/pals/${state.wallet}/claude-code" download>download agent pack</a></div>
+    <div class="cc-cmd"><code id="ccUnzip">cd ~ && unzip -n ~/Downloads/${esc(slug)}-claude-code.zip</code><button data-cccopy="ccUnzip">copy</button></div>
+    <div class="cc-step">2 · connect live sync</div>
+    ${created ? `<p class="muted" style="font-size:13px;margin:0 0 8px">Run this once in Terminal. <b class="c-warn">The key is shown only now.</b> Anyone with it can read and change ${esc(p.name)}'s memory, so don't share it.</p>
+      <div class="cc-cmd"><code id="ccMcp">${esc(created.command)}</code><button data-cccopy="ccMcp">copy</button></div>`
+      : `<p class="muted" style="font-size:13px;margin:0 0 8px">Make an agent key to get the command that connects ${esc(p.name)}'s memory and skills.</p><button class="btn btn-ghost btn-sm" id="ccMake">create agent key</button>`}
+    <div class="cc-step">3 · talk to it in Claude Code</div>
+    <p class="muted" style="font-size:13px;margin:0">Start <code>claude</code> anywhere and use <code>/${esc(slug)} &lt;task&gt;</code> or say <code>@${esc(slug)}</code>. It loads its memories, saves new ones here, and can upload your local skills: try "${esc(slug)}, sync my skills from .claude/skills".</p>`);
+  $('#modalBox').classList.add('wide');
+  $('#ccClose').onclick = closeModal;
+  if ($('#ccMake')) $('#ccMake').onclick = async () => { try { const k = await api.createAgentKey(state.wallet, 'Claude Code · ' + new Date().toLocaleDateString()); state.ccServer = k.server; ccModal(k); renderClaudeCode(); } catch (e) { toast(e.message); } };
+}
+document.addEventListener('click', e => {
+  if (e.target.id === 'ccOpen') return ccModal(null);
+  const c = e.target.closest('[data-cccopy]'); if (c) { const t = $('#' + c.dataset.cccopy).textContent; navigator.clipboard.writeText(t).then(() => { c.textContent = 'copied ✓'; setTimeout(() => c.textContent = 'copy', 1400); }, () => toast('Copy blocked: select the text instead')); return; }
+  const rv = e.target.closest('[data-ccrevoke]'); if (rv) { api.revokeAgentKey(state.wallet, rv.dataset.ccrevoke).then(() => { toast('Agent key revoked'); renderClaudeCode(); }, err => toast(err.message)); }
+});
 function renderSkills() {
   const el = $('#skillList'); if (!el) return;
   const p = state.pal;

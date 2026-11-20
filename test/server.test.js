@@ -186,6 +186,7 @@ test('square: simulation, stream and holder controls', async () => {
   assert.deepEqual(sq.order, ['B', 'A']);
   for (let i = 0; i < 60; i++) sq.tick();
   for (const p of sq.pals.values()) { assert.ok(p.x >= 40 && p.x <= WORLD.w - 40); assert.ok(p.y >= 60 && p.y <= WORLD.h - 30); }
+  Object.assign(sq.pals.get('B'), {x: 1200, y: 500, tx: 1200, ty: 500, act: 'nap', until: Date.now() + 60000});
   assert.ok(sq.move('A', 100, 100));
   for (let i = 0; i < 80; i++) sq.tick();
   const a = sq.pals.get('A'); assert.ok(Math.hypot(a.x - 100, a.y - 100) < 8, 'steered PAL arrives');
@@ -207,4 +208,50 @@ test('square: simulation, stream and holder controls', async () => {
   const reader = r.body.getReader(); const {value} = await reader.read();
   assert.match(new TextDecoder().decode(value), /event: roster/);
   ac.abort();
+});
+
+test('claude code bridge: agent key, MCP tools, agent pack, revoke', async () => {
+  const {looksSecret} = await import('../server/claude-code.js');
+  assert.equal(looksSecret('my seed phrase is in a drawer'), true);
+  assert.equal(looksSecret('abandon ability able about above absent absorb abstract absurd abuse access accident'), true);
+  assert.equal(looksSecret('Prefers short answers with bullet points'), false);
+
+  const w = newWallet(), cookie = await signIn(w);
+  const H = {cookie, 'content-type': 'application/json'};
+  const k = await (await fetch(`${base}/api/pals/${w.address}/agent-keys`, {method: 'POST', headers: H, body: JSON.stringify({label: 'laptop'})})).json();
+  assert.match(k.token, /^pals_/); assert.match(k.command, /claude mcp add --scope user --transport http pal-/);
+  const mcp = async (body, token = k.token) => fetch(`${base}/mcp`, {method: 'POST', headers: {authorization: 'Bearer ' + token, 'content-type': 'application/json', accept: 'application/json, text/event-stream'}, body: JSON.stringify(body)});
+  let r = await mcp({jsonrpc: '2.0', id: 1, method: 'initialize', params: {protocolVersion: '2025-06-18', capabilities: {}, clientInfo: {name: 'test', version: '1'}}});
+  let j = await r.json();
+  assert.equal(j.result.protocolVersion, '2025-06-18'); assert.equal(j.result.serverInfo.name, 'pals');
+  r = await mcp({jsonrpc: '2.0', method: 'notifications/initialized'}); assert.equal(r.status, 202);
+  j = await (await mcp({jsonrpc: '2.0', id: 2, method: 'tools/list'})).json();
+  const names = j.result.tools.map(t => t.name);
+  for (const n of ['pal_context', 'pal_remember', 'pal_forget', 'pal_get_skill', 'pal_learn_skill', 'pal_token_market']) assert.ok(names.includes(n), n);
+  assert.ok(!names.includes('pal_token_overview'), 'rpc tools hidden without SOLANA_RPC_URL');
+  const callTool = async (name, args) => (await (await mcp({jsonrpc: '2.0', id: 3, method: 'tools/call', params: {name, arguments: args}})).json()).result;
+  let res = await callTool('pal_remember', {text: 'Deploys everything on Railway', type: 'fact'});
+  assert.match(res.content[0].text, /Saved/);
+  res = await callTool('pal_remember', {text: 'my private key is 5abc', type: 'fact'}); assert.equal(res.isError, true);
+  res = await callTool('pal_learn_skill', {content: '---\nname: pr-review\ndescription: Use when I ask for a PR review.\n---\nCheck tests first.', filename: 'SKILL.md'});
+  assert.match(res.content[0].text, /Learned skill "pr-review"/);
+  res = await callTool('pal_context', {});
+  const ctx = JSON.parse(res.content[0].text);
+  assert.equal(ctx.memories[0].text, 'Deploys everything on Railway'); assert.equal(ctx.skills[0].name, 'pr-review');
+  res = await callTool('pal_get_skill', {name: 'pr-review'}); assert.match(res.content[0].text, /Check tests first/);
+  // the platform sees what was learned in Claude Code
+  const pal = await (await fetch(`${base}/api/pals/${w.address}`, {headers: H})).json();
+  assert.ok(pal.memories.some(m => m.text === 'Deploys everything on Railway'));
+  assert.ok(pal.skills.some(s => s.name === 'pr-review' && s.active));
+  // agent pack
+  r = await fetch(`${base}/api/pals/${w.address}/claude-code`, {headers: H});
+  assert.equal(r.headers.get('content-type'), 'application/zip');
+  const zipBuf = Buffer.from(await r.arrayBuffer());
+  assert.equal(zipBuf.readUInt32LE(0), 0x04034b50);
+  const listing = zipBuf.toString('latin1');
+  assert.match(listing, /\.claude\/agents\/[a-z0-9-]+\.md/); assert.match(listing, /\.claude\/skills\/pr-review\/SKILL\.md/); assert.match(listing, /Deploys everything on Railway/);
+  // bad / revoked keys
+  r = await mcp({jsonrpc: '2.0', id: 9, method: 'tools/list'}, 'pals_' + 'x'.repeat(30)); assert.equal(r.status, 401);
+  await fetch(`${base}/api/pals/${w.address}/agent-keys/${k.id}`, {method: 'DELETE', headers: H});
+  r = await mcp({jsonrpc: '2.0', id: 10, method: 'tools/list'}); assert.equal(r.status, 401);
 });

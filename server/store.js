@@ -17,6 +17,15 @@ const SKILLS_SQL = `create table if not exists skills (
   created_at  timestamptz not null default now(),
   unique (pal_key, name)
 );`;
+const TOKENS_SQL = `create table if not exists agent_tokens (
+  id          text primary key,
+  pal_key     text not null references pals(pal_key) on delete cascade,
+  wallet      text not null,                 -- holder who created it; must still hold the PAL to use it
+  label       text not null,
+  token_hash  text not null unique,          -- sha256 of the token; the token itself is never stored
+  created_at  timestamptz not null default now(),
+  last_used   timestamptz
+);`;
 const MAX_MEMORIES = 80, MAX_MESSAGES = 200, MAX_TOOLS = 12;
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -27,7 +36,7 @@ class FileStore {
     this.file = file;
     fs.mkdirSync(path.dirname(file), {recursive: true});
     try { this.d = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { this.d = {}; }
-    for (const k of ['pals', 'memories', 'messages', 'tools', 'skills', 'fuel', 'usage', 'nonces', 'epochs']) this.d[k] ||= (k === 'epochs' ? [] : {});
+    for (const k of ['pals', 'memories', 'messages', 'tools', 'skills', 'tokens', 'fuel', 'usage', 'nonces', 'epochs']) this.d[k] ||= (k === 'epochs' ? [] : {});
     this._t = null;
   }
   _save() { clearTimeout(this._t); this._t = setTimeout(() => fs.writeFileSync(this.file, JSON.stringify(this.d)), 50); }
@@ -62,6 +71,11 @@ class FileStore {
     this._save(); return row.id;
   }
   async approveSkill(k, id, wallet) { const s = (this.d.skills[k] || []).find(x => x.id === id); if (s) { s.approved_by = wallet; this._save(); } return !!s; }
+
+  async addAgentToken(k, wallet, label, hash) { await this.ensurePal(k); const t = {id: randomId('ak_'), pal_key: k, wallet, label, token_hash: hash, created_at: Date.now(), last_used: null}; this.d.tokens[t.id] = t; this._save(); return t.id; }
+  async listAgentTokens(k) { return Object.values(this.d.tokens).filter(t => t.pal_key === k).map(({token_hash, ...t}) => t); }
+  async deleteAgentToken(k, id) { const t = this.d.tokens[id]; if (t && t.pal_key === k) { delete this.d.tokens[id]; this._save(); } }
+  async findAgentToken(hash) { const t = Object.values(this.d.tokens).find(x => x.token_hash === hash); if (t) { t.last_used = Date.now(); this._save(); } return t || null; }
   async deleteSkill(k, id) { this.d.skills[k] = (this.d.skills[k] || []).filter(s => s.id !== id); this._save(); }
 
   async getFuel(k) { return this.d.fuel[k] || null; }
@@ -85,6 +99,7 @@ class PgStore {
     this.pool = new pg.Pool({connectionString: this.url, ssl: /localhost|127\.0\.0\.1/.test(this.url) ? false : {rejectUnauthorized: false}, max: 10});
     await this.pool.query('select 1');
     await this.pool.query(SKILLS_SQL); // added after launch: create without needing npm run migrate
+    await this.pool.query(TOKENS_SQL);
   }
   q(sql, args) { return this.pool.query(sql, args); }
   async getPal(k) { return (await this.q('select * from pals where pal_key=$1', [k])).rows[0] || null; }
@@ -126,6 +141,11 @@ class PgStore {
     return r.rows[0].id;
   }
   async approveSkill(k, id, wallet) { return (await this.q('update skills set approved_by=$3 where pal_key=$1 and id=$2', [k, id, wallet])).rowCount > 0; }
+
+  async addAgentToken(k, wallet, label, hash) { await this.ensurePal(k); const id = randomId('ak_'); await this.q('insert into agent_tokens(id,pal_key,wallet,label,token_hash) values($1,$2,$3,$4,$5)', [id, k, wallet, label, hash]); return id; }
+  async listAgentTokens(k) { return (await this.q('select id,pal_key,wallet,label,created_at,last_used from agent_tokens where pal_key=$1 order by created_at', [k])).rows.map(r => ({...r, created_at: +r.created_at, last_used: r.last_used ? +r.last_used : null})); }
+  async deleteAgentToken(k, id) { await this.q('delete from agent_tokens where pal_key=$1 and id=$2', [k, id]); }
+  async findAgentToken(hash) { return (await this.q('update agent_tokens set last_used=now() where token_hash=$1 returning id,pal_key,wallet,label', [hash])).rows[0] || null; }
   async deleteSkill(k, id) { await this.q('delete from skills where pal_key=$1 and id=$2', [k, id]); }
 
   async getFuel(k) { const r = (await this.q("select credits, to_char(day,'YYYY-MM-DD') as day from fuel where pal_key=$1", [k])).rows[0]; return r ? {credits: +r.credits, day: r.day} : null; }
